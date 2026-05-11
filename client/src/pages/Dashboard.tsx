@@ -8,11 +8,29 @@ import {
     AlertCircle,
     Activity,
     ChevronRight,
+    TrendingUp,
+    TrendingDown,
+    Minus,
+    UtensilsCrossed,
+    CalendarClock,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../lib/useCurrency';
+
+interface KpiPayload {
+    budget: {
+        thisMonth: number;
+        lastMonth: number;
+        deltaRatio: number | null;
+        topCategory: { category: string; amount: number } | null;
+    };
+    shopping: { total: number; checked: number; pending: number };
+    mealPlanning: { plannedDays: number; totalDays: number };
+    nextAppointment: { id: string; title: string; startTime: string } | null;
+    overdueTasks: number;
+}
 
 interface DashboardStats {
     upcomingAppointments: number;
@@ -20,7 +38,205 @@ interface DashboardStats {
     shoppingItems: number;
     thisMonthExpenses: number;
     budgetAlerts: number;
+    kpis?: KpiPayload;
 }
+
+// =============================================================================
+// QuickOverviewKpis
+//
+// Four concrete, time-anchored signals that replaced the original decorative
+// "welcome to Nexus" banner. Each tile is its own self-contained KPI with a
+// number, a one-line interpretation, and a click-through to the relevant page.
+// Designed to degrade gracefully: if the backend hasn't been updated yet
+// (`stats.kpis` undefined) the component falls back to a compact placeholder
+// instead of crashing.
+// =============================================================================
+interface QuickOverviewKpisProps {
+    stats: DashboardStats | null;
+    formatMoney: (n: number, opts?: { maximumFractionDigits?: number }) => string;
+    navigate: (path: string) => void;
+}
+
+const formatRelativeDate = (iso: string): string => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = d.getTime() - now.getTime();
+    const diffDays = Math.round(diffMs / (24 * 3600 * 1000));
+    if (diffDays === 0) return "aujourd'hui";
+    if (diffDays === 1) return 'demain';
+    if (diffDays > 1 && diffDays < 7) return `dans ${diffDays} jours`;
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+};
+
+const QuickOverviewKpis: React.FC<QuickOverviewKpisProps> = ({ stats, formatMoney, navigate }) => {
+    const kpis = stats?.kpis;
+    if (!kpis) {
+        return (
+            <p className="text-caption text-muted-foreground">
+                Vos indicateurs apparaîtront ici dès que vous aurez ajouté des données.
+            </p>
+        );
+    }
+
+    // Shopping progress: percentage of the active list that's been checked off.
+    const shoppingProgress =
+        kpis.shopping.total > 0
+            ? Math.round((kpis.shopping.checked / kpis.shopping.total) * 100)
+            : 0;
+
+    // Budget trend: pick the trend icon + tone from the delta ratio.
+    const delta = kpis.budget.deltaRatio;
+    const budgetTrend: {
+        Icon: typeof TrendingUp;
+        label: string;
+        tone: 'good' | 'bad' | 'neutral';
+    } = (() => {
+        if (delta === null) return { Icon: Minus, label: 'Pas de comparaison', tone: 'neutral' };
+        const pct = Math.round(delta * 100);
+        if (Math.abs(pct) < 5)
+            return { Icon: Minus, label: 'Stable vs mois dernier', tone: 'neutral' };
+        if (pct > 0)
+            return {
+                Icon: TrendingUp,
+                label: `+${pct}% vs mois dernier`,
+                tone: 'bad', // more spending = bad signal
+            };
+        return {
+            Icon: TrendingDown,
+            label: `${pct}% vs mois dernier`,
+            tone: 'good',
+        };
+    })();
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* KPI 1: Budget trend */}
+            <button
+                type="button"
+                onClick={() => navigate('/budget')}
+                className="text-left rounded-nexus border border-border/50 bg-card p-4 hover:border-nexus-blue/40 transition-colors"
+            >
+                <div className="flex items-center gap-2 text-label text-muted-foreground mb-2">
+                    <Wallet className="h-4 w-4" />
+                    Dépenses ce mois
+                </div>
+                <div className="text-h2 text-foreground">
+                    {formatMoney(kpis.budget.thisMonth, { maximumFractionDigits: 0 })}
+                </div>
+                <div
+                    className={`flex items-center gap-1 text-caption mt-2 ${
+                        budgetTrend.tone === 'bad'
+                            ? 'text-rose-600'
+                            : budgetTrend.tone === 'good'
+                              ? 'text-emerald-600'
+                              : 'text-muted-foreground'
+                    }`}
+                >
+                    <budgetTrend.Icon className="h-4 w-4" />
+                    <span>{budgetTrend.label}</span>
+                </div>
+                {kpis.budget.topCategory ? (
+                    <p className="text-micro text-muted-foreground mt-1">
+                        Top poste :{' '}
+                        <span className="font-medium">{kpis.budget.topCategory.category}</span> (
+                        {formatMoney(kpis.budget.topCategory.amount, { maximumFractionDigits: 0 })})
+                    </p>
+                ) : null}
+            </button>
+
+            {/* KPI 2: Shopping list progress */}
+            <button
+                type="button"
+                onClick={() => navigate('/shopping')}
+                className="text-left rounded-nexus border border-border/50 bg-card p-4 hover:border-nexus-blue/40 transition-colors"
+            >
+                <div className="flex items-center gap-2 text-label text-muted-foreground mb-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Liste de courses
+                </div>
+                <div className="text-h2 text-foreground">
+                    {kpis.shopping.pending}{' '}
+                    <span className="text-body text-muted-foreground">à acheter</span>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                        className="h-full bg-emerald-500 transition-all"
+                        style={{ width: `${shoppingProgress}%` }}
+                        aria-label={`${shoppingProgress}% cochés`}
+                    />
+                </div>
+                <p className="text-micro text-muted-foreground mt-1">
+                    {kpis.shopping.checked}/{kpis.shopping.total} cochés · {shoppingProgress}%
+                </p>
+            </button>
+
+            {/* KPI 3: Meal planning coverage */}
+            <button
+                type="button"
+                onClick={() => navigate('/meal-planning')}
+                className="text-left rounded-nexus border border-border/50 bg-card p-4 hover:border-nexus-blue/40 transition-colors"
+            >
+                <div className="flex items-center gap-2 text-label text-muted-foreground mb-2">
+                    <UtensilsCrossed className="h-4 w-4" />
+                    Repas planifiés
+                </div>
+                <div className="text-h2 text-foreground">
+                    {kpis.mealPlanning.plannedDays}
+                    <span className="text-body text-muted-foreground">
+                        /{kpis.mealPlanning.totalDays} jours
+                    </span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                    {Array.from({ length: kpis.mealPlanning.totalDays }, (_, i) => (
+                        <div
+                            key={i}
+                            className={`h-2 flex-1 rounded-full ${
+                                i < kpis.mealPlanning.plannedDays ? 'bg-amber-500' : 'bg-muted'
+                            }`}
+                        />
+                    ))}
+                </div>
+                <p className="text-micro text-muted-foreground mt-1">
+                    {kpis.mealPlanning.plannedDays === kpis.mealPlanning.totalDays
+                        ? 'Semaine complète ✓'
+                        : `${kpis.mealPlanning.totalDays - kpis.mealPlanning.plannedDays} jour(s) à planifier`}
+                </p>
+            </button>
+
+            {/* KPI 4: Next appointment + overdue tasks */}
+            <button
+                type="button"
+                onClick={() => navigate('/calendar')}
+                className="text-left rounded-nexus border border-border/50 bg-card p-4 hover:border-nexus-blue/40 transition-colors"
+            >
+                <div className="flex items-center gap-2 text-label text-muted-foreground mb-2">
+                    <CalendarClock className="h-4 w-4" />
+                    Prochain rendez-vous
+                </div>
+                {kpis.nextAppointment ? (
+                    <>
+                        <div className="text-body font-semibold text-foreground truncate">
+                            {kpis.nextAppointment.title}
+                        </div>
+                        <p className="text-caption text-nexus-blue mt-1">
+                            {formatRelativeDate(kpis.nextAppointment.startTime)}
+                        </p>
+                    </>
+                ) : (
+                    <p className="text-body text-muted-foreground">Aucun à venir</p>
+                )}
+                {kpis.overdueTasks > 0 ? (
+                    <p className="text-caption text-rose-600 mt-2 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {kpis.overdueTasks} tâche{kpis.overdueTasks > 1 ? 's' : ''} en retard
+                    </p>
+                ) : (
+                    <p className="text-micro text-muted-foreground mt-2">Aucune tâche en retard</p>
+                )}
+            </button>
+        </div>
+    );
+};
 
 const Dashboard: React.FC = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -183,45 +399,11 @@ const Dashboard: React.FC = () => {
                         </Button>
                     </CardHeader>
                     <CardContent>
-                        <div className="relative overflow-hidden rounded-nexus bg-nexus-background p-6">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-nexus-blue-light/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
-                            <h3 className="text-h2 mb-4 relative z-10">
-                                Bienvenue sur votre nouvel espace Nexus
-                            </h3>
-                            <p className="text-muted-foreground mb-6 max-w-lg relative z-10 text-body-sm">
-                                Nous avons repensé OpenFamily pour vous offrir une expérience plus
-                                claire, plus calme et plus efficace. Profitez d'une gestion
-                                familiale simplifiée.
-                            </p>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                                <div className="flex items-center gap-3 p-3 bg-card rounded-lg shadow-sm border border-border/50">
-                                    <div className="w-2 h-2 rounded-full bg-nexus-blue"></div>
-                                    <span className="text-body-sm font-medium">
-                                        Design Neo-Soft
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-3 p-3 bg-card rounded-lg shadow-sm border border-border/50">
-                                    <div className="w-2 h-2 rounded-full bg-nexus-amber"></div>
-                                    <span className="text-body-sm font-medium">
-                                        Navigation intuitive
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-3 p-3 bg-card rounded-lg shadow-sm border border-border/50">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                    <span className="text-body-sm font-medium">
-                                        Performance accrue
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-3 p-3 bg-card rounded-lg shadow-sm border border-border/50">
-                                    <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                                    <span className="text-body-sm font-medium">
-                                        Sécurité renforcée
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        <QuickOverviewKpis
+                            stats={stats}
+                            formatMoney={formatMoney}
+                            navigate={navigate}
+                        />
                     </CardContent>
                 </Card>
 
