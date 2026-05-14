@@ -1,0 +1,181 @@
+# docker-compose for Dokploy deployment.
+#
+# Dokploy provides a Traefik reverse proxy on the external `dokploy-network`,
+# handles TLS via Let's Encrypt, and exposes services through routing labels —
+# so no `ports:` are published on the host (except internal ones Dokploy needs).
+#
+# Routing model (single domain — family.tonuxcorp.dev):
+#   /api/*  /socket.io/*  /health   →  server:3001
+#   everything else                  →  client:80
+#
+# Before deploy, set the following variables in the Dokploy UI (Environment tab):
+#   APP_DOMAIN=family.tonuxcorp.dev
+#   POSTGRES_PASSWORD, JWT_SECRET, MINIO_ROOT_PASSWORD     (generated secrets)
+#   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
+#   NVIDIA_API_KEY                                          (or AI_ENABLED=false)
+#   RESEND_SMTP_PASSWORD, EMAIL_FROM                        (or EMAIL_ENABLED=false)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openfamily}
+      POSTGRES_USER: ${POSTGRES_USER:-openfamily}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../files/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-openfamily}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dokploy-network
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-openfamily}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - dokploy-network
+    # MinIO console (:9001) is intentionally NOT exposed. Use `docker exec` or
+    # add a Traefik router on a separate subdomain (minio.${APP_DOMAIN}) if
+    # you need browser access, gated by HTTP basic auth.
+
+  server:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-openfamily}
+      POSTGRES_USER: ${POSTGRES_USER:-openfamily}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 3001
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@${APP_DOMAIN}}
+      CORS_ORIGINS: https://${APP_DOMAIN}
+      COOKIE_SECURE: 'true'
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      JWT_ACCESS_TTL_SEC: ${JWT_ACCESS_TTL_SEC:-3600}
+      JWT_REFRESH_TTL_SEC: ${JWT_REFRESH_TTL_SEC:-604800}
+      API_RATE_LIMIT_WINDOW_MS: ${API_RATE_LIMIT_WINDOW_MS:-60000}
+      API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-300}
+      AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS:-900000}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-10}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+      # AI (NVIDIA NIM)
+      AI_ENABLED: ${AI_ENABLED:-true}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
+      NVIDIA_API_BASE_URL: ${NVIDIA_API_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-meta/llama-3.1-8b-instruct}
+      AI_MODEL_HEAVY: ${AI_MODEL_HEAVY:-meta/llama-3.3-70b-instruct}
+      AI_MODEL_VISION: ${AI_MODEL_VISION:-meta/llama-3.2-90b-vision-instruct}
+      AI_MONTHLY_TOKEN_LIMIT_PER_USER: ${AI_MONTHLY_TOKEN_LIMIT_PER_USER:-2000000}
+      AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-30000}
+      AI_STREAMING_ENABLED: ${AI_STREAMING_ENABLED:-true}
+      # Weather
+      OPEN_METEO_BASE_URL: ${OPEN_METEO_BASE_URL:-https://api.open-meteo.com/v1/forecast}
+      OPEN_METEO_GEOCODING_URL: ${OPEN_METEO_GEOCODING_URL:-https://geocoding-api.open-meteo.com/v1/search}
+      WEATHER_CACHE_TTL_MS: ${WEATHER_CACHE_TTL_MS:-600000}
+      WEATHER_REQUEST_TIMEOUT_MS: ${WEATHER_REQUEST_TIMEOUT_MS:-8000}
+      WEATHER_DEFAULT_LANG: ${WEATHER_DEFAULT_LANG:-fr}
+      # Object storage
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-openfamily}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-openfamily}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
+      # Email (Resend SMTP)
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+      RESEND_SMTP_HOST: ${RESEND_SMTP_HOST:-smtp.resend.com}
+      RESEND_SMTP_PORT: ${RESEND_SMTP_PORT:-465}
+      RESEND_SMTP_USER: ${RESEND_SMTP_USER:-resend}
+      RESEND_SMTP_PASSWORD: ${RESEND_SMTP_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
+      APP_BASE_URL: https://${APP_DOMAIN}
+      EMAIL_DIGEST_HOUR: ${EMAIL_DIGEST_HOUR:-8}
+      EMAIL_TEST_ENABLED: ${EMAIL_TEST_ENABLED:-}
+    volumes:
+      - server-uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3001/health >/dev/null 2>&1 || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      # Priority > client router so /api and /socket.io land here first.
+      - traefik.http.routers.openfamily-api.rule=Host(`${APP_DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`) || Path(`/health`))
+      - traefik.http.routers.openfamily-api.entrypoints=websecure
+      - traefik.http.routers.openfamily-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.openfamily-api.priority=100
+      - traefik.http.routers.openfamily-api.service=openfamily-api
+      - traefik.http.services.openfamily-api.loadbalancer.server.port=3001
+
+  client:
+    build:
+      context: .
+      dockerfile: ./client/Dockerfile
+      args:
+        # Same-origin: the SPA calls relative URLs that Traefik routes to server.
+        VITE_API_URL: https://${APP_DOMAIN}
+        VITE_WS_URL: wss://${APP_DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1 >/dev/null 2>&1 || exit 1']
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.openfamily-web.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.openfamily-web.entrypoints=websecure
+      - traefik.http.routers.openfamily-web.tls.certresolver=letsencrypt
+      - traefik.http.routers.openfamily-web.priority=1
+      - traefik.http.routers.openfamily-web.service=openfamily-web
+      - traefik.http.services.openfamily-web.loadbalancer.server.port=80
+
+volumes:
+  postgres-data:
+  minio-data:
+  server-uploads:
+
+networks:
+  dokploy-network:
+    external: true
