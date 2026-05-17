@@ -70,6 +70,12 @@ const getClient = (): S3Client => {
         region: cfg.region,
         credentials: { accessKeyId: cfg.accessKey, secretAccessKey: cfg.secretKey },
         forcePathStyle: true, // MinIO requirement
+        requestHandler: {
+            // Fail fast when MinIO is not available so the server starts quickly
+            // in degraded mode rather than waiting for the default 2-minute timeout.
+            connectionTimeout: 3000,
+            socketTimeout: 3000,
+        } as any,
     };
     cachedClient = new S3Client(opts);
     return cachedClient;

@@ -256,10 +256,17 @@ const startServer = async () => {
         await pool.query('SELECT NOW()');
         logger.info('server.database_connected');
 
-        // Ensure the object storage bucket exists. Crash hard if MinIO is
-        // unreachable — Documents and Projects modules cannot run without
-        // it, and a half-broken state is worse than a clear failure.
-        await ensureBucket();
+        // Ensure the object storage bucket exists.
+        // MinIO is optional in local/manual installs — if unreachable we log a
+        // warning and continue in degraded mode (file upload features disabled).
+        try {
+            await ensureBucket();
+        } catch (storageErr) {
+            logger.warn('server.storage_unavailable', {
+                message: storageErr instanceof Error ? storageErr.message : String(storageErr),
+                hint: 'File upload features are disabled. Set MINIO_ENDPOINT in .env to enable storage.',
+            });
+        }
 
         server.listen(PORT, () => {
             logger.info('server.started', {
