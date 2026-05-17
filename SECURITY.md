@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-KeurTonux is actively maintained on the `main` branch and latest release tags.
+KeurSIBY is actively maintained on the `main` branch and latest release tags.
 
 - `main`: supported
 - Latest release (`v*`): supported

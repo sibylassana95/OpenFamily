@@ -122,7 +122,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <div className="flex h-9 w-9 items-center justify-center rounded-card bg-primary text-primary-foreground shadow-surface">
                                 <Users className="h-5 w-5" />
                             </div>
-                            <span className="text-lg font-semibold tracking-tight">KeurTonux</span>
+                            <span className="text-lg font-semibold tracking-tight">KeurSIBY</span>
                         </Link>
                         <button
                             type="button"
@@ -242,7 +242,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                             </button>
                             <div>
                                 <p className="text-micro uppercase tracking-[0.12em] text-muted-foreground">
-                                    KeurTonux
+                                    KeurSIBY
                                 </p>
                                 <h1 className="text-caption font-semibold text-foreground">
                                     {currentPage ? t(currentPage.labelKey) : t('nav.today')}

@@ -52,7 +52,7 @@ const Login: React.FC = () => {
                         un espace partagé.
                     </h2>
                     <p className="text-lg text-white/90 drop-shadow">
-                        KeurTonux aide les familles sénégalaises à organiser le quotidien,
+                        KeurSIBY aide les familles sénégalaises à organiser le quotidien,
                         transmettre et garder le lien.
                     </p>
                 </div>
@@ -79,7 +79,7 @@ const Login: React.FC = () => {
                         <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-nexus-blue">
                             <Users className="w-8 h-8 text-primary-foreground" />
                         </div>
-                        <CardTitle className="text-3xl mb-3 text-primary">KeurTonux</CardTitle>
+                        <CardTitle className="text-3xl mb-3 text-primary">KeurSIBY</CardTitle>
                         <p className="text-muted-foreground text-body-sm">
                             Le numérique au service du lien familial
                         </p>
@@ -168,7 +168,7 @@ const Login: React.FC = () => {
                 </Card>
 
                 <p className="absolute bottom-6 text-label-sm text-muted-foreground text-center w-full">
-                    &copy; {new Date().getFullYear()} KeurTonux{' '}
+                    &copy; {new Date().getFullYear()} KeurSIBY{' '}
                     <a
                         href="https://tonuxcorp.dev"
                         target="_blank"

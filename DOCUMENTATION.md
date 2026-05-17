@@ -1,9 +1,9 @@
-# KeurTonux — Documentation complète
+# KeurSIBY — Documentation complète
 
 ## Sommaire
 
 1. [Présentation](#présentation)
-2. [À quoi sert KeurTonux ?](#à-quoi-sert-keurtonux-)
+2. [À quoi sert KeurSIBY ?](#à-quoi-sert-keursiby-)
 3. [Fonctionnalités détaillées](#fonctionnalités-détaillées)
 4. [Architecture technique](#architecture-technique)
 5. [Technologies utilisées](#technologies-utilisées)
@@ -16,7 +16,7 @@
 
 ## Présentation
 
-**KeurTonux** est une application **open source** de gestion familiale développée par **tonuxcorp.dev France**. Elle est conçue pour être **auto-hébergée** (self-hosted), ce qui signifie que chaque famille peut la déployer sur son propre serveur et garder le **contrôle total de ses données personnelles**.
+**KeurSIBY** est une application **open source** de gestion familiale développée par **tonuxcorp.dev France**. Elle est conçue pour être **auto-hébergée** (self-hosted), ce qui signifie que chaque famille peut la déployer sur son propre serveur et garder le **contrôle total de ses données personnelles**.
 
 L'application est accessible depuis n'importe quel appareil (ordinateur, tablette, smartphone) grâce à son interface web responsive et sa nature de **Progressive Web App (PWA)**, qui permet de l'installer directement sur l'écran d'accueil d'un téléphone ou d'un ordinateur, comme une application native.
 
@@ -24,9 +24,9 @@ Le projet est distribué sous **licence GNU AGPL v3**.
 
 ---
 
-## À quoi sert KeurTonux ?
+## À quoi sert KeurSIBY ?
 
-KeurTonux centralise l'ensemble de l'organisation d'un foyer en un seul outil. Plutôt que de jongler entre plusieurs applications (agenda, liste de courses, budget, recettes…), KeurTonux regroupe tout au même endroit, accessible à tous les membres de la famille.
+KeurSIBY centralise l'ensemble de l'organisation d'un foyer en un seul outil. Plutôt que de jongler entre plusieurs applications (agenda, liste de courses, budget, recettes…), KeurSIBY regroupe tout au même endroit, accessible à tous les membres de la famille.
 
 **Cas d'usage typiques :**
 
@@ -118,7 +118,7 @@ KeurTonux centralise l'ensemble de l'organisation d'un foyer en un seul outil. P
 
 ## Architecture technique
 
-KeurTonux suit une architecture **client-serveur classique en 3 tiers** :
+KeurSIBY suit une architecture **client-serveur classique en 3 tiers** :
 
 ```
 ┌──────────────────┐     HTTP / WS     ┌──────────────────┐     SQL      ┌──────────────────┐
@@ -141,8 +141,8 @@ KeurTonux suit une architecture **client-serveur classique en 3 tiers** :
 
 Le projet utilise les **npm workspaces** pour structurer le code en 3 packages :
 
-- `@keurtonux/client` — l'application frontend
-- `@keurtonux/server` — l'API backend
+- `@keursiby/client` — l'application frontend
+- `@keursiby/server` — l'API backend
 - `shared/` — les types TypeScript et constantes partagés entre client et serveur
 
 ---
@@ -202,7 +202,7 @@ Le projet inclut des dossiers `android/` et `ios/`, indiquant un support mobile 
 ## Structure du projet
 
 ```
-KeurTonux/
+KeurSIBY/
 ├── client/                    # Application frontend React
 │   ├── Dockerfile             # Image Docker du client (Nginx)
 │   ├── nginx.conf             # Configuration Nginx de production
@@ -287,7 +287,7 @@ KeurTonux/
 
 ## Base de données
 
-KeurTonux utilise **PostgreSQL 16** avec le schéma suivant :
+KeurSIBY utilise **PostgreSQL 16** avec le schéma suivant :
 
 ### Tables principales
 
@@ -337,14 +337,14 @@ KeurTonux utilise **PostgreSQL 16** avec le schéma suivant :
 
 L'application se déploie en **3 conteneurs Docker** orchestrés par Docker Compose :
 
-1. **keurtonux-db** — PostgreSQL 16 Alpine, avec initialisation automatique du schéma
-2. **keurtonux-server** — API Node.js/Express, avec health check intégré
-3. **keurtonux-client** — Fichiers statiques React servis par Nginx
+1. **keursiby-db** — PostgreSQL 16 Alpine, avec initialisation automatique du schéma
+2. **keursiby-server** — API Node.js/Express, avec health check intégré
+3. **keursiby-client** — Fichiers statiques React servis par Nginx
 
 ```bash
 # Cloner et configurer
-git clone https://github.com/tonuxcorp.devFrance/KeurTonux.git
-cd KeurTonux
+git clone https://github.com/tonuxcorp.devFrance/KeurSIBY.git
+cd KeurSIBY
 cp .env.example .env  # Configurer les variables
 
 # Démarrer
@@ -372,6 +372,6 @@ npm run dev             # Lance client (port 5173) + serveur (port 3001)
 
 ---
 
-> **Dépôt GitHub** : [https://github.com/tonuxcorp.devFrance/KeurTonux](https://github.com/tonuxcorp.devFrance/KeurTonux)
+> **Dépôt GitHub** : [https://github.com/tonuxcorp.devFrance/KeurSIBY](https://github.com/tonuxcorp.devFrance/KeurSIBY)
 > **Licence** : GNU AGPL v3
 > **Auteur** : tonuxcorp.dev France

@@ -1,7 +1,7 @@
 {
-  "name": "@keurtonux/server",
+  "name": "@keursiby/server",
   "version": "1.0.5",
-  "description": "KeurTonux backend server",
+  "description": "KeurSIBY backend server",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

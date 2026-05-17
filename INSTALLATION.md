@@ -1,4 +1,4 @@
-# Guide d'installation KeurTonux
+# Guide d'installation KeurSIBY
 
 Ce guide couvre:
 
@@ -118,7 +118,7 @@ docker-compose down
 
 ## 5) Depannage
 
-### `password authentication failed for user "keurtonux"`
+### `password authentication failed for user "keursiby"`
 
 Cause frequente:
 
