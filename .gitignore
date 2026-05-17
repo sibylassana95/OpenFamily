@@ -51,3 +51,6 @@ ios/
 # PWA
 client/public/sw.js
 client/public/workbox-*.js
+.env.production
+deploy/
+keursiby-backend.zip

@@ -64,9 +64,9 @@ export const getEmailConfig = (): EmailConfig => {
                     'Set EMAIL_FROM to a verified Resend sender (e.g. "KeurSIBY <notifs@yourdomain.com>").',
             );
         }
-        // Resend keys are prefixed with "re_". Wrong key = silent SMTP auth
-        // failure later, so flag obvious mismatches early.
-        if (!password.startsWith('re_')) {
+        // Resend keys are prefixed with "re_". Only warn if using the default
+        // Resend host — custom SMTP servers use different credential formats.
+        if (host.includes('resend.com') && !password.startsWith('re_')) {
             logger.warn('email.password_unexpected_prefix', {
                 hint: 'Resend API keys usually start with "re_". Double-check the value.',
             });
